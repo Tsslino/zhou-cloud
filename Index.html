@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sistema de Cozinha - 2026</title>
+    <title>Sistema de Cozinha - ZHOU CLOUD</title>
     <style>
         :root {
             --primary-color: #2e7d32;
@@ -18,9 +18,9 @@
             padding: 0;
             background-color: var(--bg-color);
             color: #333;
+            user-select: none; /* Melhora experiência mobile */
         }
 
-        /* Menu de Abas Superior */
         .header-tabs {
             display: flex;
             background: #fff;
@@ -32,7 +32,7 @@
 
         .tab-link {
             flex: 1;
-            padding: 15px;
+            padding: 18px 10px;
             text-align: center;
             border: none;
             background: none;
@@ -48,10 +48,9 @@
             border-bottom: 3px solid var(--primary-color);
         }
 
-        /* Conteúdo */
         .container {
             padding: 15px;
-            padding-bottom: 100px; /* Espaço para o botão fixo */
+            padding-bottom: 120px;
         }
 
         .section {
@@ -62,7 +61,6 @@
             display: block;
         }
 
-        /* Cards de Itens */
         .item-card {
             background: var(--card-bg);
             border-radius: 12px;
@@ -79,8 +77,8 @@
         }
 
         .checkbox-area input[type="checkbox"] {
-            width: 24px;
-            height: 24px;
+            width: 26px;
+            height: 26px;
             accent-color: var(--primary-color);
         }
 
@@ -92,6 +90,7 @@
             font-weight: bold;
             font-size: 16px;
             display: block;
+            margin-bottom: 4px;
         }
 
         .qty-wrapper {
@@ -101,20 +100,20 @@
         }
 
         .input-qty {
-            width: 70px;
-            padding: 8px;
+            width: 80px;
+            padding: 10px;
             border: 1px solid #ccc;
-            border-radius: 6px;
+            border-radius: 8px;
             text-align: center;
-            font-size: 16px; /* Evita zoom no iPhone */
+            font-size: 16px;
+            background: #fdfdfd;
         }
 
-        /* Estilo para Itens Faltantes */
         .missing-card {
-            border-left: 5px solid var(--missing-color);
+            border-left: 6px solid var(--missing-color);
+            justify-content: space-between;
         }
 
-        /* Botão Flutuante de Envio */
         .footer-fixed {
             position: fixed;
             bottom: 0;
@@ -122,7 +121,7 @@
             background: #fff;
             padding: 15px;
             box-sizing: border-box;
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
         }
 
         .btn-submit {
@@ -130,39 +129,47 @@
             background: var(--primary-color);
             color: #fff;
             border: none;
-            padding: 16px;
-            border-radius: 10px;
+            padding: 18px;
+            border-radius: 12px;
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            transition: background 0.3s;
         }
 
         .btn-submit:disabled {
             background: #ccc;
+        }
+
+        .badge-missing {
+            background: var(--missing-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-left: 5px;
         }
     </style>
 </head>
 <body>
 
     <div class="header-tabs">
-        <button class="tab-link active" onclick="switchTab('tab-registrados')">ITENS DISPONÍVEIS</button>
-        <button class="tab-link" onclick="switchTab('tab-faltantes')">O QUE FALTA</button>
+        <button class="tab-link active" onclick="switchTab(event, 'tab-registrados')">ITENS REGISTRADOS</button>
+        <button class="tab-link" onclick="switchTab(event, 'tab-faltantes')">FALTANTES <span id="count-missing"></span></button>
     </div>
 
     <div class="container">
         
         <section id="tab-registrados" class="section active">
-            <h2 style="font-size: 18px;">Selecione os Itens</h2>
-            <div id="lista-estoque">
-                </div>
+            <h2 style="font-size: 18px; margin-bottom: 20px;">Marque os itens e a quantidade:</h2>
+            <div id="lista-estoque"></div>
         </section>
 
         <section id="tab-faltantes" class="section">
-            <h2 style="font-size: 18px; color: var(--missing-color);">Lista de Compras / Faltantes</h2>
+            <h2 style="font-size: 18px; color: var(--missing-color);">Itens para Comprar / Repor</h2>
             <div id="lista-faltas">
-                <p style="color: #999;">Nenhum item marcado como faltante.</p>
+                <p style="color: #999; text-align: center; margin-top: 50px;">Nenhum item na lista de faltas.</p>
             </div>
+            <button onclick="limparFaltas()" style="margin-top: 20px; background: none; border: 1px solid #ccc; padding: 10px; width: 100%; border-radius: 8px; color: #666;">Limpar Lista de Faltas</button>
         </section>
 
     </div>
@@ -174,38 +181,42 @@
     </div>
 
     <script>
-        // Simulando sua base de dados de itens registrados
+        // LISTA DE ITENS QUE VOCÊ TEM REGISTRADO
         const itensCadastrados = [
-            { id: 101, nome: "Arroz Tipo 1", un: "kg" },
-            { id: 102, nome: "Feijão Preto", un: "kg" },
-            { id: 103, nome: "Óleo Vegetal", un: "un" },
-            { id: 104, nome: "Sal Refinado", un: "kg" },
-            { id: 105, nome: "Açúcar", un: "kg" },
-            { id: 106, nome: "Café Moído", un: "pct" }
+            { id: 1, nome: "Arroz Tipo 1", un: "kg" },
+            { id: 2, nome: "Feijão Preto", un: "kg" },
+            { id: 3, nome: "Óleo Vegetal", un: "un" },
+            { id: 4, nome: "Sal Refinado", un: "kg" },
+            { id: 5, nome: "Açúcar", un: "kg" },
+            { id: 6, nome: "Café Moído", un: "pct" },
+            { id: 7, nome: "Carne Moída", un: "kg" },
+            { id: 8, nome: "Frango (Peito)", un: "kg" },
+            { id: 9, nome: "Leite Integral", un: "cx" }
         ];
 
         let itensSelecionados = new Set();
-        let listaFaltantesGlobal = [];
+        let listaFaltantesGlobal = JSON.parse(localStorage.getItem('faltas_zhou')) || [];
 
         function renderizarRegistrados() {
             const container = document.getElementById('lista-estoque');
             container.innerHTML = itensCadastrados.map(item => `
                 <div class="item-card">
                     <div class="checkbox-area">
-                        <input type="checkbox" onchange="toggleItem(${item.id}, '${item.nome}')" id="check-${item.id}">
+                        <input type="checkbox" onchange="toggleItem(${item.id})" id="check-${item.id}">
                     </div>
-                    <div class="item-details">
+                    <div class="item-details" onclick="document.getElementById('check-${item.id}').click()">
                         <span class="item-name">${item.nome}</span>
                         <div class="qty-wrapper">
                             <small>${item.un}</small>
-                            <input type="number" id="qty-${item.id}" class="input-qty" placeholder="Qtd" min="0">
+                            <input type="number" id="qty-${item.id}" class="input-qty" placeholder="Qtd" onclick="event.stopPropagation()">
                         </div>
                     </div>
                 </div>
             `).join('');
+            renderizarFaltantes();
         }
 
-        function toggleItem(id, nome) {
+        function toggleItem(id) {
             if (itensSelecionados.has(id)) {
                 itensSelecionados.delete(id);
             } else {
@@ -216,12 +227,11 @@
 
         function atualizarBotao() {
             const btn = document.getElementById('btn-enviar');
-            const total = itensSelecionados.size;
-            btn.innerText = `ENVIAR SELECIONADOS (${total})`;
-            btn.disabled = total === 0;
+            btn.innerText = `ENVIAR SELECIONADOS (${itensSelecionados.size})`;
+            btn.disabled = itensSelecionados.size === 0;
         }
 
-        function switchTab(tabId) {
+        function switchTab(event, tabId) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
             
@@ -230,38 +240,58 @@
         }
 
         function processarEnvio() {
-            const resultados = [];
             itensSelecionados.forEach(id => {
                 const itemOriginal = itensCadastrados.find(i => i.id === id);
                 const qtd = document.getElementById(`qty-${id}`).value || 0;
-                resultados.push({ ...itemOriginal, qtdEnviada: qtd });
+                
+                // Adiciona à lista global sem apagar o que já tinha
+                listaFaltantesGlobal.push({ 
+                    ...itemOriginal, 
+                    qtdEnviada: qtd,
+                    data: new Date().toLocaleTimeString() 
+                });
             });
 
-            // Adiciona aos faltantes (exemplo de lógica)
-            listaFaltantesGlobal = [...resultados];
+            localStorage.setItem('faltas_zhou', JSON.stringify(listaFaltantesGlobal));
             renderizarFaltantes();
-
-            alert("Itens enviados com sucesso!");
-            
-            // Limpa seleções após envio
+            alert("Enviado para a lista de Faltantes!");
             resetarFormulario();
         }
 
         function renderizarFaltantes() {
             const container = document.getElementById('lista-faltas');
+            const countBadge = document.getElementById('count-missing');
+            
+            countBadge.innerText = listaFaltantesGlobal.length > 0 ? `(${listaFaltantesGlobal.length})` : "";
+
             if (listaFaltantesGlobal.length === 0) {
-                container.innerHTML = '<p style="color: #999;">Nenhum item marcado como faltante.</p>';
+                container.innerHTML = '<p style="color: #999; text-align: center; margin-top: 50px;">Nenhum item na lista de faltas.</p>';
                 return;
             }
 
-            container.innerHTML = listaFaltantesGlobal.map(item => `
+            container.innerHTML = listaFaltantesGlobal.map((item, index) => `
                 <div class="item-card missing-card">
                     <div class="item-details">
                         <span class="item-name">${item.nome}</span>
-                        <small>Quantidade solicitada: <strong>${item.qtdEnviada} ${item.un}</strong></small>
+                        <small>Quantidade: <strong>${item.qtdEnviada} ${item.un}</strong> em ${item.data}</small>
                     </div>
+                    <button onclick="removerFalta(${index})" style="background:none; border:none; color:red; font-size:20px;">×</button>
                 </div>
-            `).join('');
+            `).reverse().join(''); // Mostra os mais recentes primeiro
+        }
+
+        function removerFalta(index) {
+            listaFaltantesGlobal.splice(index, 1);
+            localStorage.setItem('faltas_zhou', JSON.stringify(listaFaltantesGlobal));
+            renderizarFaltantes();
+        }
+
+        function limparFaltas() {
+            if(confirm("Deseja limpar toda a lista de faltantes?")) {
+                listaFaltantesGlobal = [];
+                localStorage.removeItem('faltas_zhou');
+                renderizarFaltantes();
+            }
         }
 
         function resetarFormulario() {
@@ -270,7 +300,6 @@
             atualizarBotao();
         }
 
-        // Inicializar aplicação
         window.onload = renderizarRegistrados;
     </script>
 </body>
