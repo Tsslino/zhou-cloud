@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistema de Cozinha - 2026</title>
+    <style>
+        :root {
+            --primary-color: #2e7d32;
+            --missing-color: #d32f2f;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: #333;
+        }
+
+        /* Menu de Abas Superior */
+        .header-tabs {
+            display: flex;
+            background: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .tab-link {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            border: none;
+            background: none;
+            font-weight: bold;
+            font-size: 14px;
+            color: #777;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+        }
+
+        .tab-link.active {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+        }
+
+        /* Conteúdo */
+        .container {
+            padding: 15px;
+            padding-bottom: 100px; /* Espaço para o botão fixo */
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* Cards de Itens */
+        .item-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid #eee;
+        }
+
+        .checkbox-area {
+            margin-right: 15px;
+        }
+
+        .checkbox-area input[type="checkbox"] {
+            width: 24px;
+            height: 24px;
+            accent-color: var(--primary-color);
+        }
+
+        .item-details {
+            flex: 1;
+        }
+
+        .item-name {
+            font-weight: bold;
+            font-size: 16px;
+            display: block;
+        }
+
+        .qty-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .input-qty {
+            width: 70px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 16px; /* Evita zoom no iPhone */
+        }
+
+        /* Estilo para Itens Faltantes */
+        .missing-card {
+            border-left: 5px solid var(--missing-color);
+        }
+
+        /* Botão Flutuante de Envio */
+        .footer-fixed {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: #fff;
+            padding: 15px;
+            box-sizing: border-box;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.1);
+        }
+
+        .btn-submit {
+            width: 100%;
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            padding: 16px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn-submit:disabled {
+            background: #ccc;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-tabs">
+        <button class="tab-link active" onclick="switchTab('tab-registrados')">ITENS DISPONÍVEIS</button>
+        <button class="tab-link" onclick="switchTab('tab-faltantes')">O QUE FALTA</button>
+    </div>
+
+    <div class="container">
+        
+        <section id="tab-registrados" class="section active">
+            <h2 style="font-size: 18px;">Selecione os Itens</h2>
+            <div id="lista-estoque">
+                </div>
+        </section>
+
+        <section id="tab-faltantes" class="section">
+            <h2 style="font-size: 18px; color: var(--missing-color);">Lista de Compras / Faltantes</h2>
+            <div id="lista-faltas">
+                <p style="color: #999;">Nenhum item marcado como faltante.</p>
+            </div>
+        </section>
+
+    </div>
+
+    <div class="footer-fixed">
+        <button id="btn-enviar" class="btn-submit" disabled onclick="processarEnvio()">
+            ENVIAR SELECIONADOS (0)
+        </button>
+    </div>
+
+    <script>
+        // Simulando sua base de dados de itens registrados
+        const itensCadastrados = [
+            { id: 101, nome: "Arroz Tipo 1", un: "kg" },
+            { id: 102, nome: "Feijão Preto", un: "kg" },
+            { id: 103, nome: "Óleo Vegetal", un: "un" },
+            { id: 104, nome: "Sal Refinado", un: "kg" },
+            { id: 105, nome: "Açúcar", un: "kg" },
+            { id: 106, nome: "Café Moído", un: "pct" }
+        ];
+
+        let itensSelecionados = new Set();
+        let listaFaltantesGlobal = [];
+
+        function renderizarRegistrados() {
+            const container = document.getElementById('lista-estoque');
+            container.innerHTML = itensCadastrados.map(item => `
+                <div class="item-card">
+                    <div class="checkbox-area">
+                        <input type="checkbox" onchange="toggleItem(${item.id}, '${item.nome}')" id="check-${item.id}">
+                    </div>
+                    <div class="item-details">
+                        <span class="item-name">${item.nome}</span>
+                        <div class="qty-wrapper">
+                            <small>${item.un}</small>
+                            <input type="number" id="qty-${item.id}" class="input-qty" placeholder="Qtd" min="0">
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleItem(id, nome) {
+            if (itensSelecionados.has(id)) {
+                itensSelecionados.delete(id);
+            } else {
+                itensSelecionados.add(id);
+            }
+            atualizarBotao();
+        }
+
+        function atualizarBotao() {
+            const btn = document.getElementById('btn-enviar');
+            const total = itensSelecionados.size;
+            btn.innerText = `ENVIAR SELECIONADOS (${total})`;
+            btn.disabled = total === 0;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        function processarEnvio() {
+            const resultados = [];
+            itensSelecionados.forEach(id => {
+                const itemOriginal = itensCadastrados.find(i => i.id === id);
+                const qtd = document.getElementById(`qty-${id}`).value || 0;
+                resultados.push({ ...itemOriginal, qtdEnviada: qtd });
+            });
+
+            // Adiciona aos faltantes (exemplo de lógica)
+            listaFaltantesGlobal = [...resultados];
+            renderizarFaltantes();
+
+            alert("Itens enviados com sucesso!");
+            
+            // Limpa seleções após envio
+            resetarFormulario();
+        }
+
+        function renderizarFaltantes() {
+            const container = document.getElementById('lista-faltas');
+            if (listaFaltantesGlobal.length === 0) {
+                container.innerHTML = '<p style="color: #999;">Nenhum item marcado como faltante.</p>';
+                return;
+            }
+
+            container.innerHTML = listaFaltantesGlobal.map(item => `
+                <div class="item-card missing-card">
+                    <div class="item-details">
+                        <span class="item-name">${item.nome}</span>
+                        <small>Quantidade solicitada: <strong>${item.qtdEnviada} ${item.un}</strong></small>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function resetarFormulario() {
+            itensSelecionados.clear();
+            renderizarRegistrados();
+            atualizarBotao();
+        }
+
+        // Inicializar aplicação
+        window.onload = renderizarRegistrados;
+    </script>
+</body>
+</html>

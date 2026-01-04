@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ZHOU COZINHA | APP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Inter:wght@400;900&display=swap" rel="stylesheet">
+    <style>
+        body { background: #050505; color: #fff; font-family: 'Inter', sans-serif; padding-bottom: 120px; overflow-x: hidden; }
+        .futuristic { font-family: 'Orbitron', sans-serif; }
+        .card-item { background: #0d0d0f; border: 1px solid #1a1a1e; padding: 15px; border-radius: 12px; transition: 0.2s; }
+        .card-item.selected { border-color: #f00; background: rgba(255,0,0,0.1); }
+        .input-qtd { background: #000; border: 1px solid #333; color: #f00; width: 70px; height: 45px; text-align: center; border-radius: 8px; font-size: 20px; font-weight: 900; outline: none; }
+        
+        @keyframes pulse-white { 0%, 100% { color: #222; } 50% { color: #fff; } }
+        .signature-glow { animation: pulse-white 2s infinite; }
+    </style>
+</head>
+<body class="p-4">
+    <header class="text-center mb-6 pt-4">
+        <div class="flex justify-center items-center gap-2 mb-2">
+            <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            </span>
+            <span class="text-[8px] font-black text-green-500 uppercase tracking-widest">Conectado ao Zhou Cloud</span>
+        </div>
+        <h1 class="font-black italic text-red-600 text-xl uppercase futuristic">ZHOU <span class="text-white">COZINHA</span></h1>
+        <p id="nome-loja" class="text-[10px] text-zinc-500 font-bold mt-1 uppercase italic tracking-widest">Sincronizando...</p>
+    </header>
+
+    <div id="sec-falta" class="space-y-3">
+        <input type="text" id="busca" placeholder="PROCURAR ITEM..." class="w-full p-4 bg-zinc-900 rounded-xl text-white mb-4 border border-zinc-800 outline-none focus:border-red-600 uppercase font-bold text-xs" oninput="render()">
+        <div id="lista-itens" class="grid grid-cols-1 gap-2"></div>
+        
+        <div class="fixed bottom-0 left-0 right-0 p-4 bg-black/95 backdrop-blur-md border-t border-zinc-900 z-50">
+            <button onclick="enviarTudo()" id="btn-enviar" class="bg-red-600 w-full py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-red-900/40">Enviar para o Tassio</button>
+        </div>
+    </div>
+
+    <footer class="mt-12 mb-20 text-center opacity-40">
+        <p class="text-[7px] text-zinc-600 uppercase tracking-[3px] mb-1">System Provided by</p>
+        <h2 class="futuristic text-[10px] font-black italic signature-glow tracking-[5px]">TASSIO LINO</h2>
+    </footer>
+
+    <script>
+        const sb = supabase.createClient("https://jxwxvzvxaabzoajdhetw.supabase.co", "sb_publishable_MFyO9fL-XKBzrVC0SRBOuw_bqghFOzF");
+        const urlParams = new URLSearchParams(window.location.search);
+        const lojaId = urlParams.get('loja');
+        let selecionados = {}; let listaBase = []; let ultimaNotificacao = "";
+
+        async function init() {
+            if(!lojaId) return alert("ERRO: Link da unidade inválido.");
+            const { data: loja } = await sb.from('unidades').select('nome').eq('id', lojaId).single();
+            if(loja) document.getElementById('nome-loja').innerText = loja.nome;
+
+            const { data } = await sb.from('fornecedores').select('itens');
+            let itensSet = new Set();
+            data.forEach(f => f.itens.forEach(it => itensSet.add(it.nome.trim().toUpperCase())));
+            listaBase = [...itensSet].sort();
+            render();
+            setInterval(checarAlerta, 30000); 
+        }
+
+        async function checarAlerta() {
+            const { data: cfg } = await sb.from('configuracoes').select('*').eq('id', 1).single();
+            if(!cfg) return;
+            const agora = new Date();
+            const h = agora.getHours().toString().padStart(2, '0') + ":" + agora.getMinutes().toString().padStart(2, '0');
+            const d = agora.getDay().toString();
+
+            if(cfg.lembrete_hora === h && ultimaNotificacao !== h) {
+                let tocar = (cfg.tipo_repeticao === 'diario') || (cfg.dias_semana && cfg.dias_semana.split(',').includes(d));
+                if(tocar) {
+                    ultimaNotificacao = h;
+                    new Audio(cfg.toque_url).play().catch(()=>{});
+                    alert(`🚨 ZHOU INFORMA:\n\n${cfg.mensagem_alerta}`);
+                }
+            }
+        }
+
+        function render() {
+            const b = document.getElementById('busca').value.toUpperCase();
+            const container = document.getElementById('lista-itens');
+            container.innerHTML = listaBase.filter(i => i.includes(b)).map(n => {
+                const s = selecionados[n] !== undefined;
+                return `<div class="card-item ${s?'selected':''}" onclick="toggle('${n}')">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[11px] font-black uppercase ${s?'text-white':'text-zinc-600'}">${n}</span>
+                        <input type="number" inputmode="numeric" id="q-${n.replace(/\s/g,'_')}" class="input-qtd ${s?'':'hidden'}" onclick="event.stopPropagation()" oninput="selecionados['${n}']=this.value" value="${selecionados[n]||''}" placeholder="0">
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function toggle(n) { if(selecionados[n]!==undefined) delete selecionados[n]; else selecionados[n]=""; render(); }
+
+        async function enviarTudo() {
+            if(!Object.keys(selecionados).length) return alert("Selecione itens primeiro!");
+            const nome = prompt("PEDIDO FINALIZADO!\nPOR FAVOR, DIGITE SEU NOME:");
+            if(!nome || nome.trim() === "") return alert("Nome obrigatório para o registro!");
+            
+            const btn = document.getElementById('btn-enviar');
+            btn.innerText = "ENVIANDO..."; btn.disabled = true;
+
+            const final = Object.keys(selecionados).map(n => ({
+                unidade_id: lojaId, item_nome: n, quantidade: selecionados[n], solicitante: nome.toUpperCase(), created_at: new Date().toISOString()
+            }));
+
+            const { error } = await sb.from('faltas').insert(final);
+            if(!error) { alert("PEDIDO REGISTRADO COM SUCESSO!"); selecionados={}; render(); }
+            else { alert("Erro de conexão. Tente novamente."); }
+            btn.innerText = "Enviar para o Tassio"; btn.disabled = false;
+        }
+        init();
+    </script>
+</body>
+</html>
